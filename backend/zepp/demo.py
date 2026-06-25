@@ -46,6 +46,7 @@ def _day(seed: int, date: str) -> dict:
         "readiness": readiness,
         "bodyBattery": max(20, min(100, round(readiness * 0.7 + r.randint(0, 30)))),
         "stress": max(8, min(92, 28 + r.randint(0, 45))),
+        "exertion": max(0, min(100, 4 + r.randint(0, 24))),
         "spo2": 95 + r.randint(0, 3),
         "sleep": {
             "totalMinutes": total_min,

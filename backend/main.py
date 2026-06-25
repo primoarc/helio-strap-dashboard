@@ -65,6 +65,8 @@ def _client() -> HuamiClient | None:
 # Códigos + parsing confirmados contra respuestas reales del Helio Strap.
 _METRIC_EVENTS = [
     ("readiness", "v2", "readiness", "watch_score", "readiness"),
+    ("bodyBattery", "v2", "Charge", "summary", "hybridCharge"),
+    ("exertion", "v2", "Charge", "real_data", "exertion"),
     ("hrv", "v2", "hrv_sdnn", "real_data", "hrv"),
     ("stress", "user", "all_day_stress", None, "stress"),
     ("spo2", "user", "blood_oxygen", "click", "spo2"),

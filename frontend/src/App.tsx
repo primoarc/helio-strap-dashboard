@@ -142,7 +142,7 @@ export default function App() {
                 />
                 <MiniRingStat
                   value={today.bodyBattery}
-                  label="Batería"
+                  label="Hybrid"
                   display={String(today.bodyBattery)}
                   from="#2f9e74"
                   to="var(--color-recovery)"
@@ -228,9 +228,9 @@ export default function App() {
           />
           <StatTile
             icon="bolt"
-            label="Activo"
-            value={a.activeMinutes}
-            unit="min"
+            label="Exertion"
+            value={today.exertion}
+            unit="%"
             delay={120}
           />
           <StatTile

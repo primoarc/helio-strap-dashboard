@@ -112,6 +112,30 @@ def extract_metric(item: dict[str, Any], kind: str) -> Optional[float]:
         if isinstance(samples, list):
             return _mean([s.get("sdnn") for s in samples if isinstance(s, dict)])
         return None
+    if kind == "hybridCharge":
+        v = _as_obj(item.get("value")) or {}
+        samples = v.get("samples") if isinstance(v, dict) else None
+        if isinstance(samples, list):
+            vals = [
+                s.get("maxCharge")
+                for s in samples
+                if isinstance(s, dict) and isinstance(s.get("maxCharge"), (int, float))
+            ]
+            return float(vals[-1]) if vals else None
+        return None
+    if kind == "exertion":
+        v = _as_obj(item.get("value")) or {}
+        samples = v.get("samples") if isinstance(v, dict) else None
+        if isinstance(samples, list):
+            vals = [
+                s.get("exertionScore")
+                for s in samples
+                if isinstance(s, dict)
+                and isinstance(s.get("exertionScore"), (int, float))
+                and 0 <= s.get("exertionScore") < 255
+            ]
+            return float(vals[-1]) if vals else None
+        return None
     if kind == "stress":
         # La app Zepp muestra el estado actual; usamos el último punto del día.
         data = _as_obj(item.get("data"))
@@ -186,6 +210,7 @@ def build_day(
         "readiness": readiness,
         "bodyBattery": pick("bodyBattery", _clamp(readiness * 0.8, 0, 100)),
         "stress": pick("stress", _clamp(100 - efficiency, 0, 100)),
+        "exertion": pick("exertion", 0),
         "spo2": pick("spo2", 0),
         "sleep": {
             "totalMinutes": total_min,
@@ -248,6 +273,23 @@ def extract_daily(events: list[dict[str, Any]], kind: str) -> dict[str, float]:
     out: dict[str, float] = {}
     for ev in events or []:
         ts = ev.get("timestamp") or ev.get("time")
+        if kind == "hybridCharge":
+            v = _as_obj(ev.get("value")) or {}
+            if isinstance(v, dict) and v.get("startTime"):
+                ts = v.get("startTime")
+        if kind == "exertion":
+            v = _as_obj(ev.get("value")) or {}
+            samples = v.get("samples") if isinstance(v, dict) else None
+            if isinstance(samples, list) and v.get("startTime"):
+                valid = [
+                    s
+                    for s in samples
+                    if isinstance(s, dict)
+                    and isinstance(s.get("exertionScore"), (int, float))
+                    and isinstance(s.get("s"), (int, float))
+                ]
+                if valid:
+                    ts = int(v["startTime"]) + int(valid[-1]["s"])
         day = _ms_to_local_date(ts) if ts is not None else None
         if not day:
             continue

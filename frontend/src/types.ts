@@ -66,6 +66,7 @@ export interface DayData {
   readiness: number
   bodyBattery: number // 0-100
   stress: number // 0-100
+  exertion: number // 0-100
   spo2: number // %
   sleep: SleepData
   heart: HeartRateData

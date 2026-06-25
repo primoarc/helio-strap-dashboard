@@ -121,6 +121,7 @@ function buildDay(dayIndex: number, dateISO: string): DayData {
     readiness,
     bodyBattery: clamp(Math.round(readiness * 0.7 + r() * 30), 20, 100),
     stress: clamp(Math.round(28 + r() * 45), 8, 92),
+    exertion: clamp(Math.round(4 + r() * 24), 0, 100),
     spo2: Math.round(95 + r() * 3),
     sleep: {
       totalMinutes,
