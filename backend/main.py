@@ -97,11 +97,13 @@ def _apply_activity_fallback(days: list[dict], step_by_date: dict[str, list[int]
 
         parsed = day.setdefault("parsed", {})
         stp = parsed.setdefault("stp", {})
-        if int(stp.get("ttl") or 0) > 0:
+        current_total = int(stp.get("ttl") or 0)
+        has_hourly = bool(stp.get("stage"))
+        if current_total > 0 and has_hourly:
             continue
 
         hourly = [sum(steps[h * 60 : (h + 1) * 60]) for h in range(24)]
-        stp["ttl"] = total
+        stp["ttl"] = max(current_total, total)
         stp["dis"] = int(total * 0.72) if not int(stp.get("dis") or 0) else stp["dis"]
         stp["cal"] = int(total * 0.04) if not int(stp.get("cal") or 0) else stp["cal"]
         stp["runDist"] = sum(1 for v in steps if v) * 100
