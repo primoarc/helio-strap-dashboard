@@ -151,12 +151,15 @@ def extract_metric(item: dict[str, Any], kind: str) -> Optional[float]:
         nums = [float(x) for x in (lo, hi) if str(x).replace(".", "").isdigit()]
         return _mean(nums)
     if kind == "spo2":
-        # extra.spo2History → mayor lectura no nula
+        # La app muestra la lectura puntual; cada evento trae `extra.spo2`.
         extra = _as_obj(item.get("extra")) or {}
+        value = extra.get("spo2") if isinstance(extra, dict) else None
+        if isinstance(value, (int, float)) and value:
+            return float(value)
         hist = extra.get("spo2History") if isinstance(extra, dict) else None
         if isinstance(hist, list):
             nz = [x for x in hist if isinstance(x, (int, float)) and x]
-            return max(nz) if nz else None
+            return float(nz[-1]) if nz else None
         return None
     return None
 
@@ -271,8 +274,12 @@ def _ms_to_local_date(ts: int) -> Optional[str]:
 def extract_daily(events: list[dict[str, Any]], kind: str) -> dict[str, float]:
     """{YYYY-MM-DD: valor} para una métrica, a partir de sus eventos."""
     out: dict[str, float] = {}
-    for ev in events or []:
+    for ev in sorted(events or [], key=lambda e: e.get("timestamp") or e.get("time") or 0):
         ts = ev.get("timestamp") or ev.get("time")
+        if kind == "hrv":
+            v = _as_obj(ev.get("value")) or {}
+            if isinstance(v, dict) and v.get("startTime"):
+                ts = v.get("startTime")
         if kind == "hybridCharge":
             v = _as_obj(ev.get("value")) or {}
             if isinstance(v, dict) and v.get("startTime"):

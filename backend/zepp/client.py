@@ -343,7 +343,7 @@ class HuamiClient:
         from_ms: int,
         to_ms: int,
         sub_type: Optional[str] = None,
-        limit: int = 500,
+        limit: int = 2000,
     ) -> list[dict[str, Any]]:
         """
         Stream centrado en el reloj via /users/{id}/events:
