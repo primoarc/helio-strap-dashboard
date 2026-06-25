@@ -31,6 +31,19 @@ def _clamp(v: float, lo: float, hi: float) -> int:
 
 
 def _sleep_segments(slp: dict[str, Any]) -> list[dict[str, Any]]:
+    # Zepp ya entrega totales agregados por etapa; son los que usa la app.
+    if any(slp.get(k) for k in ("dp", "lt", "dt", "wk")):
+        segments = []
+        if slp.get("dp"):
+            segments.append({"stage": "deep", "minutes": int(slp["dp"])})
+        if slp.get("lt"):
+            segments.append({"stage": "light", "minutes": int(slp["lt"])})
+        if slp.get("dt"):
+            segments.append({"stage": "rem", "minutes": int(slp["dt"])})
+        if slp.get("wk"):
+            segments.append({"stage": "awake", "minutes": int(slp["wk"])})
+        return segments
+
     stages = slp.get("stage") or []
     segments: list[dict[str, Any]] = []
     for st in stages:
