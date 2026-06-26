@@ -89,3 +89,15 @@ export interface HealthSnapshot {
   week: DayData[]
   source: 'demo' | 'zepp'
 }
+
+export interface DailyBrief {
+  date: string
+  generatedAt: string
+  source: 'openai' | 'local' | 'local-fallback'
+  title: string
+  summary: string
+  recommendation: string
+  focus: string
+  bullets: string[]
+  warnings: string[]
+}

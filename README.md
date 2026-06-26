@@ -62,6 +62,21 @@ Vite ya tiene configurado el proxy `/api → localhost:8000`.
 
 Sin credenciales, el backend sirve datos demo igualmente (útil para cablear).
 
+### 2.1 Brief diario con IA (opcional)
+
+El panel **AI morning brief** se genera automáticamente después de las 8:00 AM
+o manualmente con el botón de actualizar del panel. Si defines `OPENAI_API_KEY`
+en `backend/.env`, usa OpenAI desde el backend; si no, cae a un resumen local
+básico.
+
+```bash
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_TIMEOUT_SECONDS=30
+```
+
+No pongas la clave en `frontend/.env`, ni en archivos que vayan a GitHub.
+
 ### 3. Deploy a Vercel
 
 Ya está todo listo (`vercel.json`, `api/index.py`, `requirements.txt` raíz).

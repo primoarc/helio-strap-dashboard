@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { HealthSnapshot } from './types'
-import { fetchSnapshot } from './lib/dataSource'
+import type { DailyBrief, HealthSnapshot } from './types'
+import { fetchDailyBrief, fetchSnapshot } from './lib/dataSource'
 import { hm, localDateKey, nf, scoreLabel } from './lib/format'
 
 import Sidebar from './components/Sidebar'
@@ -17,6 +17,7 @@ import StatTile from './components/StatTile'
 import Heartbeat from './components/Heartbeat'
 import Icon from './components/Icon'
 import RecoveryCoach from './components/RecoveryCoach'
+import DailyBriefPanel from './components/DailyBriefPanel'
 
 const SECTION_IDS = ['top', 'heart', 'sleep', 'activity', 'trends']
 
@@ -24,6 +25,9 @@ export default function App() {
   const [data, setData] = useState<HealthSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [brief, setBrief] = useState<DailyBrief | null>(null)
+  const [briefError, setBriefError] = useState<string | null>(null)
+  const [briefLoading, setBriefLoading] = useState(false)
   const [active, setActive] = useState('top')
 
   // Scrollspy: resalta en el sidebar la sección visible.
@@ -68,9 +72,40 @@ export default function App() {
     }
   }, [])
 
+  const loadBrief = useCallback(async (refresh = false) => {
+    setBriefLoading(true)
+    try {
+      setBrief(await fetchDailyBrief(refresh))
+      setBriefError(null)
+    } catch (e) {
+      setBriefError(e instanceof Error ? e.message : 'No se pudo generar')
+    } finally {
+      setBriefLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!data) return
+
+    const now = new Date()
+    const eight = new Date(now)
+    eight.setHours(8, 0, 0, 0)
+
+    if (now >= eight) {
+      loadBrief(false)
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      loadBrief(false)
+    }, eight.getTime() - now.getTime())
+
+    return () => window.clearTimeout(timeout)
+  }, [data?.today.date, loadBrief])
 
   if (error) {
     return (
@@ -210,6 +245,20 @@ export default function App() {
           delay={90}
         >
           <RecoveryCoach today={today} week={week} />
+        </Panel>
+
+        <Panel
+          className="mt-4"
+          title="AI morning brief"
+          hint="Auto 8:00 AM · botón manual"
+          delay={110}
+        >
+          <DailyBriefPanel
+            brief={brief}
+            error={briefError}
+            loading={briefLoading}
+            onRefresh={() => loadBrief(true)}
+          />
         </Panel>
 
         {/* Fila 2 — tarjetas rápidas */}
