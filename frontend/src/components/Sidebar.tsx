@@ -27,7 +27,7 @@ export default function Sidebar({ active, onSelect, lang }: Props) {
     <aside className="sticky top-0 hidden h-svh w-[68px] flex-col items-center gap-1 border-r border-line py-5 lg:flex">
       <button
         onClick={() => onSelect('top')}
-        title="Helio Strap"
+        title="Zepp alternative dashboard"
         className="mb-6 grid h-10 w-10 place-items-center rounded-xl glow-solar"
       >
         <Icon name="sun" size={22} className="text-solar-bright" />
