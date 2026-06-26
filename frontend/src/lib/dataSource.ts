@@ -13,10 +13,36 @@ import type { Lang } from './i18n'
 
 const MODE = (import.meta.env.VITE_DATA_SOURCE as string) || 'demo'
 
+const PW_KEY = 'helio-site-pw'
+
+/** Error específico para "se requiere contraseña" (HTTP 401). */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('AUTH_REQUIRED')
+    this.name = 'AuthRequiredError'
+  }
+}
+
+export function setSitePassword(pw: string): void {
+  sessionStorage.setItem(PW_KEY, pw)
+}
+
+export function hasSitePassword(): boolean {
+  return Boolean(sessionStorage.getItem(PW_KEY))
+}
+
+function authHeaders(): Record<string, string> {
+  const pw = sessionStorage.getItem(PW_KEY)
+  return pw ? { 'X-Site-Password': pw } : {}
+}
+
 export async function fetchSnapshot(refresh = false): Promise<HealthSnapshot> {
   if (MODE === 'zepp') {
     // refresh=1 le dice al backend que ignore su caché y baje datos frescos.
-    const res = await fetch(`/api/snapshot${refresh ? '?refresh=1' : ''}`)
+    const res = await fetch(`/api/snapshot${refresh ? '?refresh=1' : ''}`, {
+      headers: authHeaders(),
+    })
+    if (res.status === 401) throw new AuthRequiredError()
     if (!res.ok) {
       throw new Error(`Backend Zepp respondió ${res.status}`)
     }
@@ -35,7 +61,10 @@ export async function fetchDailyBrief(
   if (MODE === 'zepp') {
     const params = new URLSearchParams({ lang })
     if (refresh) params.set('refresh', '1')
-    const res = await fetch(`/api/daily-brief?${params.toString()}`)
+    const res = await fetch(`/api/daily-brief?${params.toString()}`, {
+      headers: authHeaders(),
+    })
+    if (res.status === 401) throw new AuthRequiredError()
     if (!res.ok) {
       throw new Error(
         lang === 'en' ? `Brief returned ${res.status}` : `Brief respondió ${res.status}`,

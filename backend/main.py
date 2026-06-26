@@ -22,10 +22,11 @@ import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.zepp.client import HuamiClient, ZeppError
@@ -444,8 +445,21 @@ def _openai_daily_brief(compact: dict, lang: str = "es") -> dict:
     return brief
 
 
-@app.get("/api/snapshot")
-def snapshot(refresh: bool = False) -> dict:
+def _check_auth(password: Optional[str]) -> None:
+    """Protege los datos con una contraseña simple (SITE_PASSWORD).
+
+    Si SITE_PASSWORD no está definida, los endpoints quedan abiertos (útil en
+    local/demo). En Vercel, defínela para exigir contraseña. La compara con la
+    cabecera X-Site-Password que envía el frontend.
+    """
+    required = os.getenv("SITE_PASSWORD", "").strip()
+    if not required:
+        return
+    if password != required:
+        raise HTTPException(status_code=401, detail="Contraseña requerida")
+
+
+def _snapshot_cached(refresh: bool = False) -> dict:
     now = time.time()
     stale = _cache["data"] is None or now - float(_cache["at"]) > CACHE_TTL
     # refresh=1 (botón de la UI) ignora el caché y baja datos frescos de Zepp.
@@ -455,10 +469,24 @@ def snapshot(refresh: bool = False) -> dict:
     return _cache["data"]  # type: ignore[return-value]
 
 
+@app.get("/api/snapshot")
+def snapshot(
+    refresh: bool = False,
+    x_site_password: Optional[str] = Header(default=None),
+) -> dict:
+    _check_auth(x_site_password)
+    return _snapshot_cached(refresh)
+
+
 @app.get("/api/daily-brief")
-def daily_brief(refresh: bool = False, lang: str = "es") -> dict:
+def daily_brief(
+    refresh: bool = False,
+    lang: str = "es",
+    x_site_password: Optional[str] = Header(default=None),
+) -> dict:
+    _check_auth(x_site_password)
     lang = _brief_language(lang)
-    snap = snapshot(refresh=refresh)
+    snap = _snapshot_cached(refresh)
     compact = _compact_snapshot(snap)
     cache_key = f"{compact['date']}:{lang}"
     if (

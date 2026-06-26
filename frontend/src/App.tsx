@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { DailyBrief, HealthSnapshot } from './types'
-import { fetchDailyBrief, fetchSnapshot } from './lib/dataSource'
+import {
+  AuthRequiredError,
+  fetchDailyBrief,
+  fetchSnapshot,
+  hasSitePassword,
+} from './lib/dataSource'
 import { hm, localDateKey, numberFormat, scoreLabel } from './lib/format'
 import { LANG_STORAGE_KEY, normalizeLang, TEXT, type Lang } from './lib/i18n'
 
@@ -19,12 +24,15 @@ import Heartbeat from './components/Heartbeat'
 import Icon from './components/Icon'
 import RecoveryCoach from './components/RecoveryCoach'
 import DailyBriefPanel from './components/DailyBriefPanel'
+import PasswordGate from './components/PasswordGate'
 
 const SECTION_IDS = ['top', 'heart', 'sleep', 'activity', 'trends']
 
 export default function App() {
   const [data, setData] = useState<HealthSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [authRequired, setAuthRequired] = useState(false)
+  const [authFailed, setAuthFailed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [brief, setBrief] = useState<DailyBrief | null>(null)
   const [briefError, setBriefError] = useState<string | null>(null)
@@ -73,10 +81,19 @@ export default function App() {
   const load = useCallback(async (refresh = false) => {
     setRefreshing(true)
     try {
-      setData(await fetchSnapshot(refresh))
+      const snap = await fetchSnapshot(refresh)
+      setData(snap)
       setError(null)
+      setAuthRequired(false)
+      setAuthFailed(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar')
+      if (e instanceof AuthRequiredError) {
+        // Si ya había una contraseña guardada y aun así dio 401, fue incorrecta.
+        setAuthFailed(hasSitePassword())
+        setAuthRequired(true)
+      } else {
+        setError(e instanceof Error ? e.message : 'Error al cargar')
+      }
     } finally {
       setRefreshing(false)
     }
@@ -122,6 +139,12 @@ export default function App() {
 
     return () => window.clearTimeout(timeout)
   }, [data?.today.date, loadBrief])
+
+  if (authRequired) {
+    return (
+      <PasswordGate lang={lang} failed={authFailed} onSubmit={() => load()} />
+    )
+  }
 
   if (error) {
     return (
