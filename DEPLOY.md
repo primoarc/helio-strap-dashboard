@@ -42,7 +42,7 @@ git init && git add . && git commit -m "Helio Strap dashboard"
 | `OPENAI_API_KEY` | tu clave | Opcional — activa el brief con IA; sin ella usa el resumen local |
 | `OPENAI_MODEL` | tu modelo | Opcional — modelo del brief (default en el código) |
 | `OPENAI_TIMEOUT_SECONDS` | `30` | Opcional — timeout de la llamada a OpenAI |
-| `USER_NAME` | `Edwin` | Opcional — nombre en el saludo |
+| `USER_NAME` | `Atleta` | Opcional — nombre en el saludo |
 | `DEVICE_BATTERY` | _(vacío)_ | Opcional — Zepp NO expone la batería por API. Déjala sin definir y la UI muestra "—"; ponle un número solo si quieres forzar un valor fijo |
 | `CACHE_TTL_SECONDS` | `900` | Opcional — caché (respeta rate-limit de Zepp) |
 
