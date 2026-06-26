@@ -2,11 +2,12 @@ import type { SleepData, SleepStage } from '../types'
 import { hm, clock } from '../lib/format'
 import { TEXT, type Lang } from '../lib/i18n'
 
-const STAGE_META: Record<SleepStage, { label: string; color: string; level: number }> = {
-  deep: { label: 'Profundo', color: '#5b4fd0', level: 3 },
-  light: { label: 'Ligero', color: '#9b8cf0', level: 2 },
-  rem: { label: 'REM', color: '#57b6d6', level: 1 },
-  awake: { label: 'Despierto', color: '#ff9d2e', level: 0 },
+// Las etiquetas vienen del i18n (stageLabel); aquí solo color y nivel visual.
+const STAGE_META: Record<SleepStage, { color: string; level: number }> = {
+  deep: { color: '#5b4fd0', level: 3 },
+  light: { color: '#9b8cf0', level: 2 },
+  rem: { color: '#57b6d6', level: 1 },
+  awake: { color: '#ff9d2e', level: 0 },
 }
 const ORDER: SleepStage[] = ['deep', 'light', 'rem', 'awake']
 

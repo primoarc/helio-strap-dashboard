@@ -37,12 +37,24 @@ git init && git add . && git commit -m "Helio Strap dashboard"
 | `VITE_DATA_SOURCE` | `zepp` | **Build** — que el frontend use el backend, no demo |
 | `ZEPP_APP_TOKEN` | tu token | Runtime — auth con Zepp (ver `backend/TOKEN.md`) |
 | `ZEPP_USER_ID` | tu user id | Runtime |
-| `USER_NAME` | `Atleta` | Opcional — nombre en el saludo |
+| `ZEPP_API_HOST` | p. ej. `api-mifit.zepp.com` | Runtime — host regional (lo guarda `get_token`) |
+| `TZ` | `America/Guatemala` | Runtime — para que las fechas locales cuadren en el servidor |
+| `OPENAI_API_KEY` | tu clave | Opcional — activa el brief con IA; sin ella usa el resumen local |
+| `OPENAI_MODEL` | tu modelo | Opcional — modelo del brief (default en el código) |
+| `OPENAI_TIMEOUT_SECONDS` | `30` | Opcional — timeout de la llamada a OpenAI |
+| `USER_NAME` | `Edwin` | Opcional — nombre en el saludo |
 | `DEVICE_BATTERY` | `78` | Opcional — % batería mostrado |
 | `CACHE_TTL_SECONDS` | `900` | Opcional — caché (respeta rate-limit de Zepp) |
 
 > Usa **token** (`ZEPP_APP_TOKEN`), no email/password: en serverless cada cold
 > start logueándose dispara el rate-limit de Huami. El token + caché lo evita.
+> Recuerda: el token caduca; si los datos dejan de actualizar, recáptluralo
+> (proxy, ver `backend/TOKEN.md`).
+
+> **Timeout de función:** `vercel.json` fija `maxDuration: 60` para la función
+> porque `/api/snapshot` hace varias llamadas a Zepp y `/api/daily-brief` llama
+> a OpenAI. En el plan Hobby el máximo es 60s (con Fluid Compute, activo por
+> defecto). Si ves errores 504, sube el `CACHE_TTL` o revisa el timeout de OpenAI.
 
 ## 4. Proteger el acceso — Vercel Authentication
 
