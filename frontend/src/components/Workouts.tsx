@@ -9,6 +9,7 @@ const TYPE_ICON: Record<string, IconName> = {
   Caminata: 'steps',
   Fuerza: 'bolt',
   Yoga: 'pulse',
+  Entreno: 'pulse',
 }
 
 function workoutLabel(type: string, lang: Lang): string {
@@ -20,6 +21,7 @@ function workoutLabel(type: string, lang: Lang): string {
       Caminata: 'Walk',
       Fuerza: 'Strength',
       Yoga: 'Yoga',
+      Entreno: 'Workout',
     }[type] ?? type
   )
 }

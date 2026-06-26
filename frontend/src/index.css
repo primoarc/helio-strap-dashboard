@@ -5,26 +5,32 @@
    Casi-negro cálido + acento ámbar/dorado (Helio = sol).
    ─────────────────────────────────────────────────────────── */
 @theme {
-  --color-bg: #0b0a09;
-  --color-surface: #141210;
-  --color-surface-2: #1b1815;
-  --color-elevated: #221e1a;
+  /* Fondo frío tipo WHOOP / health-startup */
+  --color-bg: #090b0e;
+  --color-surface: #14181e;
+  --color-surface-2: #1c212a;
+  --color-elevated: #262d37;
 
-  --color-line: rgba(255, 240, 220, 0.07);
-  --color-line-strong: rgba(255, 240, 220, 0.13);
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-line-strong: rgba(255, 255, 255, 0.18);
 
-  --color-ink: #f5efe6;
-  --color-muted: #9a9087;
-  --color-faint: #6a635b;
+  --color-ink: #f2f5f8;
+  --color-muted: #9aa4b2;
+  --color-faint: #69727f;
 
-  --color-solar: #ff9d2e;
-  --color-solar-bright: #ffc46a;
-  --color-solar-deep: #e8761a;
+  /* Acento de marca = verde recuperación (sustituye al ámbar "solar") */
+  --color-solar: #19e3a0;
+  --color-solar-bright: #5cf2c2;
+  --color-solar-deep: #0bbf86;
 
-  --color-recovery: #5fd0a0;
-  --color-strain: #ff5e5b;
-  --color-sleep: #9b8cf0;
-  --color-info: #57b6d6;
+  /* Pilares semánticos WHOOP */
+  --color-recovery: #19e3a0; /* recuperado (alto) */
+  --color-recovery-mid: #ffcf4a; /* medio */
+  --color-recovery-low: #ff5d6c; /* bajo */
+  --color-effort: #2bd4ff; /* strain / esfuerzo (cian) */
+  --color-strain: #ff5d6c; /* alerta / HR alto (rojo) */
+  --color-sleep: #8b8cff; /* sueño (índigo) */
+  --color-info: #2bd4ff;
 
   --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
@@ -54,7 +60,7 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Atmósfera: halo solar arriba a la izquierda + grano sutil */
+  /* Atmósfera: halos fríos (verde recovery + cian strain) + grano sutil */
   body::before {
     content: '';
     position: fixed;
@@ -64,12 +70,12 @@
     background:
       radial-gradient(
         900px 600px at 12% -8%,
-        rgba(255, 157, 46, 0.1),
+        rgba(25, 227, 160, 0.09),
         transparent 60%
       ),
       radial-gradient(
         700px 500px at 100% 0%,
-        rgba(155, 140, 240, 0.06),
+        rgba(43, 212, 255, 0.06),
         transparent 55%
       );
   }
@@ -91,7 +97,7 @@
   }
 
   ::selection {
-    background: rgba(255, 157, 46, 0.28);
+    background: rgba(25, 227, 160, 0.26);
     color: #fff;
   }
 
@@ -137,8 +143,8 @@
   }
   .glow-solar {
     box-shadow:
-      0 0 0 1px rgba(255, 157, 46, 0.08),
-      0 18px 60px -28px rgba(255, 157, 46, 0.55);
+      0 0 0 1px rgba(25, 227, 160, 0.08),
+      0 18px 60px -28px rgba(25, 227, 160, 0.5);
   }
 }
 

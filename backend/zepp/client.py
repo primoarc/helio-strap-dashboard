@@ -285,11 +285,12 @@ class HuamiClient:
 
     def activity_steps(self, date_str: str) -> list[int]:
         """
-        Pasos intradía desde el blob `data` del band_data detail.
+        Pasos intradía (1 valor/minuto, 1440) desde el blob `data` del detail.
 
-        En algunos días recientes Zepp devuelve el resumen `stp.ttl` en 0,
-        aunque el detalle minuto-a-minuto ya trae pasos. El blob tiene 3 bytes
-        por minuto; el segundo byte corresponde a pasos/minuto.
+        El blob trae 3 bytes por minuto: byte0 = marcador (0x7E), byte1 =
+        intensidad/actividad, byte2 = pasos del minuto. La suma diaria de byte2
+        coincide EXACTAMENTE con `stp.ttl` del resumen (verificado contra datos
+        reales del Helio Strap), por eso byte2 es la fuente correcta.
         """
         s = self.session()
         try:
@@ -309,6 +310,32 @@ class HuamiClient:
         if not data:
             return []
         return _decode_activity_steps(data[-1].get("data"))
+
+    def sport_history(self) -> list[dict[str, Any]]:
+        """
+        Historial de entrenos vía /v1/sport/run/history.json.
+
+        Cada item es el resumen de una sesión (trackid, type, dis, calorie,
+        avg_heart_rate, run_time, end_time, …). El campo `data.summary` es una
+        lista (a veces JSON-string). Devuelve la lista cruda; la agrupación por
+        día y el mapeo al modelo de la UI viven en normalize.py.
+        """
+        s = self.session()
+        try:
+            payload = self._get(
+                "/v1/sport/run/history.json",
+                {"source": "run.mifit.huami.com", "userid": s.user_id},
+            )
+        except (requests.RequestException, ValueError, ZeppError):
+            return []
+        data = payload.get("data") or {}
+        summary = data.get("summary")
+        if isinstance(summary, str):
+            try:
+                summary = json.loads(summary)
+            except (ValueError, json.JSONDecodeError):
+                return []
+        return summary if isinstance(summary, list) else []
 
     def events_v2(
         self, event_type: str, sub_type: str, from_ms: int, to_ms: int, limit: int = 500
@@ -392,7 +419,10 @@ def _decode_hr(raw: Optional[str]) -> list[int]:
 
 
 def _decode_activity_steps(raw: Optional[str]) -> list[int]:
-    """data: base64, 3 bytes/min; byte 1 = pasos del minuto."""
+    """data: base64, 3 bytes/min; byte 2 (índice 2) = pasos del minuto.
+
+    (byte0 = marcador 0x7E, byte1 = intensidad; solo byte2 suma stp.ttl.)
+    """
     if not raw:
         return []
     try:
@@ -401,4 +431,4 @@ def _decode_activity_steps(raw: Optional[str]) -> list[int]:
         return []
     if len(b) < 3 or len(b) % 3 != 0:
         return []
-    return [int(b[i + 1]) for i in range(0, len(b), 3)]
+    return [int(b[i + 2]) for i in range(0, len(b), 3)]

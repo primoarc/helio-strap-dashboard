@@ -78,7 +78,7 @@ export interface HealthSnapshot {
   device: {
     name: string
     model: string
-    battery: number // 0-100
+    battery: number | null // 0-100; null = Zepp no expone la batería
     lastSync: string // ISO
   }
   user: {

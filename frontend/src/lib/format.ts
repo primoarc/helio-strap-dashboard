@@ -49,12 +49,11 @@ export function numberFormat(lang: Lang): Intl.NumberFormat {
   return new Intl.NumberFormat(locale(lang))
 }
 
-/** color semántico según un score 0-100 */
+/** color semántico por zonas estilo WHOOP (verde / amarillo / rojo) */
 export function scoreTone(v: number): string {
-  if (v >= 80) return 'var(--color-recovery)'
-  if (v >= 60) return 'var(--color-solar)'
-  if (v >= 40) return 'var(--color-solar-deep)'
-  return 'var(--color-strain)'
+  if (v >= 67) return 'var(--color-recovery)' // verde — recuperado
+  if (v >= 34) return 'var(--color-recovery-mid)' // amarillo — medio
+  return 'var(--color-recovery-low)' // rojo — bajo
 }
 
 export function scoreLabel(v: number, lang: Lang = 'es'): string {

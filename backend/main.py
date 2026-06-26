@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.zepp.client import HuamiClient, ZeppError
 from backend.zepp.demo import build_demo_snapshot
-from backend.zepp.normalize import build_snapshot, extract_daily
+from backend.zepp.normalize import build_snapshot, extract_daily, workouts_by_date
 
 # Carga backend/.env sin importar desde dónde se ejecute. En Vercel no existe
 # .env y las variables vienen del dashboard (load_dotenv no falla si no hay).
@@ -91,8 +91,15 @@ def _metrics_by_date(client: HuamiClient, from_ms: int, to_ms: int) -> dict[str,
     return by_date
 
 
-def _apply_activity_fallback(days: list[dict], step_by_date: dict[str, list[int]]) -> None:
-    """Completa pasos desde detail.data si el resumen diario llega en cero."""
+def _apply_hourly_steps(days: list[dict], step_by_date: dict[str, list[int]]) -> None:
+    """Reconstruye los pasos por hora desde el detalle minuto-a-minuto.
+
+    `stp.stage` del resumen son tramos de ACTIVIDAD (ejercicio), no un desglose
+    horario — usarlo concentra todo el día en 1-2 horas. El blob detail sí trae
+    1 valor por minuto, así que de ahí derivamos las 24 horas reales. Los
+    totales del resumen (ttl/dis/cal) se respetan y solo se rellenan si vienen
+    en cero (días recientes que aún no agregan el summary).
+    """
     for day in days:
         date = day.get("date") or day.get("date_time")
         steps = step_by_date.get(date) or []
@@ -102,26 +109,23 @@ def _apply_activity_fallback(days: list[dict], step_by_date: dict[str, list[int]
 
         parsed = day.setdefault("parsed", {})
         stp = parsed.setdefault("stp", {})
-        current_total = int(stp.get("ttl") or 0)
-        has_hourly = bool(stp.get("stage"))
-        if current_total > 0 and has_hourly:
-            continue
 
+        # Pasos por hora REALES (minuto-a-minuto), no los tramos de ejercicio.
         hourly = [sum(steps[h * 60 : (h + 1) * 60]) for h in range(24)]
-        use_detail_totals = total > current_total or not has_hourly
-        stp["ttl"] = max(current_total, total)
-        if use_detail_totals:
-            stp["dis"] = int(total * 0.72)
-            stp["cal"] = int(total * 0.04)
-        else:
-            stp["dis"] = int(total * 0.72) if not int(stp.get("dis") or 0) else stp["dis"]
-            stp["cal"] = int(total * 0.04) if not int(stp.get("cal") or 0) else stp["cal"]
-        stp["runDist"] = sum(1 for v in steps if v) * 100
         stp["stage"] = [
             {"start": h * 60, "stop": (h + 1) * 60, "step": value}
             for h, value in enumerate(hourly)
             if value
         ]
+        stp["runDist"] = sum(1 for v in steps if v) * 100
+
+        # Totales: el resumen manda; solo rellena si llegó en cero.
+        if not int(stp.get("ttl") or 0):
+            stp["ttl"] = total
+        if not int(stp.get("dis") or 0):
+            stp["dis"] = int(total * 0.72)
+        if not int(stp.get("cal") or 0):
+            stp["cal"] = int(total * 0.04)
 
 
 def _real_snapshot(client: HuamiClient) -> dict:
@@ -141,15 +145,23 @@ def _real_snapshot(client: HuamiClient) -> dict:
     }
     step_by_date = {
         to_date: client.activity_steps(to_date),
+        yesterday: client.activity_steps(yesterday),
     }
-    _apply_activity_fallback(days, step_by_date)
+    _apply_hourly_steps(days, step_by_date)
 
     metrics_by_date = _metrics_by_date(client, from_ms, to_ms)
+    workouts = workouts_by_date(client.sport_history())
+
+    # La nube de Zepp NO expone el nivel de batería del Helio Strap (ni el
+    # endpoint de devices ni el de eventos lo traen). Si quieres mostrar un
+    # valor, ponlo a mano en DEVICE_BATTERY; si no, va None y la UI lo oculta.
+    batt_env = os.getenv("DEVICE_BATTERY", "").strip()
+    battery = int(batt_env) if batt_env.isdigit() else None
 
     device = {
         "name": "Helio Strap",
         "model": "Amazfit Helio",
-        "battery": int(os.getenv("DEVICE_BATTERY", "0")) or 0,
+        "battery": battery,
         "lastSync": now.isoformat(),
     }
     return build_snapshot(
@@ -158,6 +170,7 @@ def _real_snapshot(client: HuamiClient) -> dict:
         device,
         user_name=os.getenv("USER_NAME", "Atleta"),
         metrics_by_date=metrics_by_date,
+        workouts_by_date=workouts,
     )
 
 

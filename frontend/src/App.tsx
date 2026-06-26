@@ -7,7 +7,7 @@ import { LANG_STORAGE_KEY, normalizeLang, TEXT, type Lang } from './lib/i18n'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import Panel from './components/Panel'
-import SolarRing from './components/SolarRing'
+import HeroTriad from './components/HeroTriad'
 import MiniRingStat from './components/MiniRingStat'
 import HeartRateChart from './components/HeartRateChart'
 import SleepStages from './components/SleepStages'
@@ -182,49 +182,39 @@ export default function App() {
           onLangToggle={() => setLang((current) => (current === 'es' ? 'en' : 'es'))}
         />
 
-        {/* Fila 1 — readiness héroe + corazón */}
-        <div className="grid grid-cols-12 gap-4">
-          <Panel id="top" className="col-span-12 lg:col-span-4" delay={0}>
-            <div className="flex flex-col items-center">
-              <SolarRing value={today.readiness} lang={lang} />
-              <p className="mt-4 text-center text-[13px] leading-relaxed text-muted">
-                {copy.energyPrefix}{' '}
-                <b className="text-ink">
-                  {scoreLabel(today.readiness, lang).toLowerCase()}
-                </b>.
-                {!isCurrentDay
-                  ? copy.recentZeppRecord
-                  : today.readiness >= 70
-                  ? copy.pushDay
-                  : copy.lightDay}
-              </p>
-              <div className="mt-6 grid w-full grid-cols-3 gap-2 border-t border-line pt-5">
-                <MiniRingStat
-                  value={today.sleep.score}
-                  label={copy.sleep}
-                  display={String(today.sleep.score)}
-                />
-                <MiniRingStat
-                  value={today.bodyBattery}
-                  label="Hybrid"
-                  display={String(today.bodyBattery)}
-                  from="#2f9e74"
-                  to="var(--color-recovery)"
-                />
-                <MiniRingStat
-                  value={today.stress}
-                  label={copy.stress}
-                  display={String(today.stress)}
-                  from="var(--color-solar)"
-                  to="var(--color-strain)"
-                />
-              </div>
-            </div>
-          </Panel>
+        {/* Fila 1 — tríada héroe glanceable (Recovery · Strain · Sleep) */}
+        <Panel id="top" delay={0}>
+          <HeroTriad today={today} lang={lang} />
+          <div className="mt-6 grid w-full grid-cols-3 gap-2 border-t border-line pt-5 sm:max-w-md">
+            <MiniRingStat
+              value={today.bodyBattery}
+              label="Hybrid"
+              display={String(today.bodyBattery)}
+              from="#2f9e74"
+              to="var(--color-recovery)"
+            />
+            <MiniRingStat
+              value={today.stress}
+              label={copy.stress}
+              display={String(today.stress)}
+              from="var(--color-solar)"
+              to="var(--color-strain)"
+            />
+            <MiniRingStat
+              value={today.spo2}
+              label="SpO₂"
+              display={String(today.spo2)}
+              from="var(--color-info)"
+              to="#7fe6ff"
+            />
+          </div>
+        </Panel>
 
+        {/* Fila 2 — corazón */}
+        <div className="mt-4 grid grid-cols-12 gap-4">
           <Panel
             id="heart"
-            className="col-span-12 lg:col-span-8"
+            className="col-span-12"
             title={`${copy.heartRate} · ${recordLabel}`}
             delay={60}
             right={

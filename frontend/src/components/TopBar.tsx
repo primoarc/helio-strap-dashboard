@@ -68,10 +68,19 @@ export default function TopBar({
           </span>
         </button>
         <div className="panel flex items-center gap-2.5 px-3.5 py-2">
-          <Icon name="battery" size={16} className="text-recovery" />
+          <Icon
+            name="battery"
+            size={16}
+            className={data.device.battery != null ? 'text-recovery' : 'text-faint'}
+          />
           <div className="leading-tight">
-            <div className="font-mono text-sm tnum text-ink">
-              {data.device.battery}%
+            <div
+              className="font-mono text-sm tnum text-ink"
+              title={
+                data.device.battery == null ? copy.batteryUnavailable : undefined
+              }
+            >
+              {data.device.battery != null ? `${data.device.battery}%` : '—'}
             </div>
             <div className="font-mono text-[10px] text-faint">
               {data.device.model}

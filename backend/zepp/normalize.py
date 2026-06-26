@@ -25,6 +25,22 @@ _SLEEP_MODE = {
     8: "awake",
 }
 
+# Códigos de tipo de deporte de Huami → etiqueta que la UI ya conoce
+# (ver TYPE_ICON / workoutLabel en frontend Workouts.tsx). Lo no mapeado
+# cae en "Entreno" (genérico, traducido a "Workout" en la UI).
+_SPORT_TYPE = {
+    1: "Correr",  # carrera al aire libre
+    8: "Correr",  # cinta / indoor run
+    6: "Caminata",  # caminata
+    9: "Ciclismo",  # ciclismo exterior
+    10: "Ciclismo",  # ciclismo indoor
+    16: "Fuerza",  # actividad libre / fuerza
+    17: "Fuerza",  # sesión de gym (sin distancia)
+    52: "Fuerza",  # entrenamiento de fuerza
+    60: "Yoga",
+    223: "Fuerza",  # gym / fuerza (tipo más frecuente del Helio Strap)
+}
+
 
 def _clamp(v: float, lo: float, hi: float) -> int:
     return int(max(lo, min(hi, v)))
@@ -68,13 +84,19 @@ def _ts_iso(unix: Optional[int]) -> Optional[str]:
 
 
 def _hr_series(hr: list[int]) -> list[dict[str, int]]:
-    """De [bpm/min] a Point[] muestreado cada 5 min (omite minutos sin lectura)."""
+    """De [bpm/min] a Point[] en ventanas de 5 min usando el MÁXIMO del bucket.
+
+    Tomar el máximo (en vez del valor del minuto i) evita perder los picos
+    cuando caen en minutos no múltiplos de 5 — así el pico del gráfico coincide
+    con `heart.max`. Omite ventanas sin lectura.
+    """
     if not hr:
         return []
     out = []
     for i in range(0, len(hr), 5):
-        if hr[i] > 0:
-            out.append({"t": i, "v": int(hr[i])})
+        bucket = [v for v in hr[i : i + 5] if v > 0]
+        if bucket:
+            out.append({"t": i, "v": int(max(bucket))})
     return out
 
 
@@ -164,10 +186,63 @@ def extract_metric(item: dict[str, Any], kind: str) -> Optional[float]:
     return None
 
 
+def _normalize_workout(item: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """Un item de /v1/sport/run/history.json → modelo Workout de la UI."""
+    if not isinstance(item, dict):
+        return None
+    try:
+        trackid = str(item.get("trackid") or "")
+        end = int(float(item.get("end_time") or 0))
+        dur = int(float(item.get("run_time") or 0))  # segundos
+    except (ValueError, TypeError):
+        return None
+    if not trackid or not end:
+        return None
+
+    def _num(key: str) -> float:
+        try:
+            return float(item.get(key) or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    workout: dict[str, Any] = {
+        "id": trackid,
+        "type": _SPORT_TYPE.get(int(item.get("type") or 0), "Entreno"),
+        "start": _ts_iso(end - dur) or "",
+        "durationMin": max(1, round(dur / 60)),
+        "calories": round(_num("calorie")),
+        "avgHr": int(_num("avg_heart_rate")),
+    }
+    dist_m = _num("dis")
+    if dist_m > 0:
+        workout["distanceKm"] = round(dist_m / 1000, 2)
+    return workout
+
+
+def workouts_by_date(items: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Agrupa los entrenos por día local (a partir de end_time) y los ordena."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    for it in items or []:
+        workout = _normalize_workout(it)
+        if not workout or not workout["start"]:
+            continue
+        try:
+            day = _ms_to_local_date(int(float(it.get("end_time") or 0)))
+        except (ValueError, TypeError):
+            day = None
+        if not day:
+            continue
+        out.setdefault(day, []).append(workout)
+    for day in out:
+        out[day].sort(key=lambda w: w["start"])
+    return out
+
+
 def build_day(
     raw: dict[str, Any],
     hr: Optional[list[int]] = None,
     metrics: Optional[dict[str, Any]] = None,
+    workouts: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     parsed = raw.get("parsed") or {}
     stp = parsed.get("stp") or {}
@@ -239,7 +314,7 @@ def build_day(
             "activeMinutes": int(stp.get("runDist", 0) // 100) if stp else 0,
             "hourly": _hourly_from_stages(stp),
         },
-        "workouts": [],  # los entrenos vienen de /v1/sport/run/history.json
+        "workouts": workouts or [],  # de /v1/sport/run/history.json
     }
 
 
@@ -312,14 +387,17 @@ def build_snapshot(
     device: dict[str, Any],
     user_name: str = "Atleta",
     metrics_by_date: Optional[dict[str, dict[str, Any]]] = None,
+    workouts_by_date: Optional[dict[str, list[dict[str, Any]]]] = None,
 ) -> dict[str, Any]:
     metrics_by_date = metrics_by_date or {}
+    workouts_by_date = workouts_by_date or {}
     days_sorted = sorted(days, key=_day_date)
     week = [
         build_day(
             d,
             hr_by_date.get(_day_date(d)),
             metrics_by_date.get(_day_date(d)),
+            workouts_by_date.get(_day_date(d)),
         )
         for d in days_sorted
     ]
