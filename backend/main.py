@@ -17,6 +17,7 @@ request — su endpoint de login tiene rate-limit estricto.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from datetime import datetime, timedelta
@@ -37,6 +38,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "900"))  # 15 min por defecto
 DAYS = 7
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Helio Strap API", version="0.1.0")
 app.add_middleware(
@@ -47,7 +49,7 @@ app.add_middleware(
 )
 
 _cache: dict[str, object] = {"at": 0.0, "data": None}
-_brief_cache: dict[str, object] = {"date": None, "data": None}
+_brief_cache: dict[str, object] = {"key": None, "data": None}
 
 
 def _client() -> HuamiClient | None:
@@ -217,7 +219,12 @@ def _compact_snapshot(snap: dict) -> dict:
     }
 
 
-def _local_daily_brief(compact: dict) -> dict:
+def _brief_language(lang: str) -> str:
+    return "en" if lang == "en" else "es"
+
+
+def _local_daily_brief(compact: dict, lang: str = "es") -> dict:
+    lang = _brief_language(lang)
     readiness = int(compact["readiness"])
     sleep = int(compact["sleep"]["score"])
     hrv = int(compact["heart"]["hrv"])
@@ -227,37 +234,73 @@ def _local_daily_brief(compact: dict) -> dict:
     hybrid = int(compact["hybrid_charge"])
     steps = int(compact["activity"]["steps"])
 
-    mode = "Empujar" if readiness >= 75 else "Construir" if readiness >= 55 else "Proteger"
-    focus = "recuperación" if readiness < 55 else "base aeróbica" if exertion <= 10 else "carga moderada"
+    if lang == "en":
+        mode = "Push" if readiness >= 75 else "Build" if readiness >= 55 else "Protect"
+        focus = "recovery" if readiness < 55 else "aerobic base" if exertion <= 10 else "moderate load"
+    else:
+        mode = "Empujar" if readiness >= 75 else "Construir" if readiness >= 55 else "Proteger"
+        focus = "recuperación" if readiness < 55 else "base aeróbica" if exertion <= 10 else "carga moderada"
+
     warnings = []
     if spo2 and spo2 < 90:
-        warnings.append("SpO2 baja: repite medición y revisa ajuste del strap.")
+        warnings.append(
+            "Low SpO2: repeat the reading and check strap fit."
+            if lang == "en"
+            else "SpO2 baja: repite medición y revisa ajuste del strap."
+        )
     if stress >= 60:
-        warnings.append("Estrés alto: baja intensidad si notas fatiga.")
+        warnings.append(
+            "High stress: lower intensity if you feel fatigued."
+            if lang == "en"
+            else "Estrés alto: baja intensidad si notas fatiga."
+        )
+
+    if lang == "en":
+        summary = (
+            f"Sleep {sleep}, HRV {hrv} ms, Hybrid {hybrid}, and stress {stress}. "
+            f"You have {steps:,} steps and exertion {exertion}%."
+        )
+        recommendation = (
+            "Good day for zone 2, technique, or controlled strength."
+            if mode == "Build"
+            else "You can push if the plan calls for it."
+            if mode == "Push"
+            else "Prioritize recovery, mobility, and sleep."
+        )
+        bullets = [
+            f"Readiness {readiness}: {mode.lower()}.",
+            f"Sleep {sleep} with {compact['sleep']['minutes'] // 60}h {compact['sleep']['minutes'] % 60:02d}m.",
+            f"HRV {hrv} ms and RHR {compact['heart']['resting']} bpm.",
+            f"Exertion {exertion}% with {steps:,} steps.",
+        ]
+    else:
+        summary = (
+            f"Sueño {sleep}, HRV {hrv} ms, Hybrid {hybrid} y estrés {stress}. "
+            f"Llevas {steps:,} pasos y exertion {exertion}%."
+        )
+        recommendation = (
+            "Buen día para zona 2, técnica o fuerza controlada."
+            if mode == "Construir"
+            else "Puedes empujar si el plan lo pide."
+            if mode == "Empujar"
+            else "Prioriza recuperación, movilidad y sueño."
+        )
+        bullets = [
+            f"Readiness {readiness}: {mode.lower()}.",
+            f"Sueño {sleep} con {compact['sleep']['minutes'] // 60}h {compact['sleep']['minutes'] % 60:02d}m.",
+            f"HRV {hrv} ms y RHR {compact['heart']['resting']} ppm.",
+            f"Exertion {exertion}% con {steps:,} pasos.",
+        ]
 
     return {
         "date": compact["date"],
         "generatedAt": datetime.now().isoformat(),
         "source": "local",
         "title": f"{mode}: readiness {readiness}",
-        "summary": (
-            f"Sueño {sleep}, HRV {hrv} ms, Hybrid {hybrid} y estrés {stress}. "
-            f"Llevas {steps:,} pasos y exertion {exertion}%."
-        ),
-        "recommendation": (
-            "Buen día para zona 2, técnica o fuerza controlada."
-            if mode == "Construir"
-            else "Puedes empujar si el plan lo pide."
-            if mode == "Empujar"
-            else "Prioriza recuperación, movilidad y sueño."
-        ),
+        "summary": summary,
+        "recommendation": recommendation,
         "focus": focus,
-        "bullets": [
-            f"Readiness {readiness}: {mode.lower()}.",
-            f"Sueño {sleep} con {compact['sleep']['minutes'] // 60}h {compact['sleep']['minutes'] % 60:02d}m.",
-            f"HRV {hrv} ms y RHR {compact['heart']['resting']} ppm.",
-            f"Exertion {exertion}% con {steps:,} pasos.",
-        ],
+        "bullets": bullets,
         "warnings": warnings,
     }
 
@@ -274,20 +317,70 @@ def _parse_openai_text(payload: dict) -> str:
     return "\n".join(chunks).strip()
 
 
-def _openai_daily_brief(compact: dict) -> dict:
+def _daily_brief_schema() -> dict:
+    string_array = {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "title": {"type": "string"},
+            "summary": {"type": "string"},
+            "recommendation": {"type": "string"},
+            "focus": {"type": "string"},
+            "bullets": string_array,
+            "warnings": string_array,
+        },
+        "required": [
+            "title",
+            "summary",
+            "recommendation",
+            "focus",
+            "bullets",
+            "warnings",
+        ],
+    }
+
+
+def _coerce_openai_brief(parsed: dict, compact: dict) -> dict:
+    if not isinstance(parsed, dict):
+        raise ValueError("OpenAI brief payload is not an object")
+
+    bullets = parsed.get("bullets")
+    warnings = parsed.get("warnings")
+    if not isinstance(bullets, list) or not isinstance(warnings, list):
+        raise ValueError("OpenAI brief bullets/warnings are not arrays")
+
+    return {
+        "date": compact["date"],
+        "generatedAt": datetime.now().isoformat(),
+        "source": "openai",
+        "title": str(parsed["title"]),
+        "summary": str(parsed["summary"]),
+        "recommendation": str(parsed["recommendation"]),
+        "focus": str(parsed["focus"]),
+        "bullets": [str(x) for x in bullets][:5],
+        "warnings": [str(x) for x in warnings][:3],
+    }
+
+
+def _openai_daily_brief(compact: dict, lang: str = "es") -> dict:
+    lang = _brief_language(lang)
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return _local_daily_brief(compact)
+        return _local_daily_brief(compact, lang)
 
     model = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
     timeout = int(os.getenv("OPENAI_TIMEOUT_SECONDS", "30"))
+    language = "English" if lang == "en" else "Spanish"
     prompt = {
         "role": "user",
         "content": (
-            "Genera un brief matutino de wellness en español para un atleta recreativo. "
-            "Usa solo estos datos, no diagnostiques enfermedades y no des consejo médico. "
-            "Devuelve JSON válido con las claves: title, summary, recommendation, focus, bullets, warnings. "
-            "bullets y warnings deben ser arrays de strings. Sé concreto, estilo WHOOP, máximo 90 palabras entre summary y recommendation.\n\n"
+            f"Generate a morning wellness brief in {language} for a recreational athlete. "
+            "Use only the supplied metrics. Do not diagnose disease and do not provide medical advice. "
+            "Be concrete, conservative, and similar in tone to WHOOP. Keep summary plus recommendation under 90 words.\n\n"
             f"DATOS:\n{json.dumps(compact, ensure_ascii=False)}"
         ),
     }
@@ -296,10 +389,21 @@ def _openai_daily_brief(compact: dict) -> dict:
         "input": [
             {
                 "role": "system",
-                "content": "Eres un coach de recuperación. Sé directo, práctico y conservador.",
+                "content": (
+                    "You are a recovery coach. Be direct, practical, and conservative. "
+                    f"Respond in {language}."
+                ),
             },
             prompt,
         ],
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "daily_wellness_brief",
+                "strict": True,
+                "schema": _daily_brief_schema(),
+            }
+        },
     }
     try:
         r = requests.post(
@@ -314,21 +418,17 @@ def _openai_daily_brief(compact: dict) -> dict:
         r.raise_for_status()
         text = _parse_openai_text(r.json())
         parsed = json.loads(text)
-        return {
-            "date": compact["date"],
-            "generatedAt": datetime.now().isoformat(),
-            "source": "openai",
-            "title": str(parsed.get("title") or "Brief diario"),
-            "summary": str(parsed.get("summary") or ""),
-            "recommendation": str(parsed.get("recommendation") or ""),
-            "focus": str(parsed.get("focus") or "recuperación"),
-            "bullets": [str(x) for x in parsed.get("bullets", [])][:5],
-            "warnings": [str(x) for x in parsed.get("warnings", [])][:3],
-        }
-    except Exception:
-        brief = _local_daily_brief(compact)
-        brief["source"] = "local-fallback"
-        return brief
+        return _coerce_openai_brief(parsed, compact)
+    except requests.exceptions.RequestException as e:
+        logger.warning("OpenAI daily brief request failed: %s", e)
+    except json.JSONDecodeError as e:
+        logger.warning("OpenAI daily brief returned invalid JSON: %s", e)
+    except (KeyError, TypeError, ValueError) as e:
+        logger.warning("OpenAI daily brief returned invalid schema data: %s", e)
+
+    brief = _local_daily_brief(compact, lang)
+    brief["source"] = "local-fallback"
+    return brief
 
 
 @app.get("/api/snapshot")
@@ -343,18 +443,20 @@ def snapshot(refresh: bool = False) -> dict:
 
 
 @app.get("/api/daily-brief")
-def daily_brief(refresh: bool = False) -> dict:
+def daily_brief(refresh: bool = False, lang: str = "es") -> dict:
+    lang = _brief_language(lang)
     snap = snapshot(refresh=refresh)
     compact = _compact_snapshot(snap)
+    cache_key = f"{compact['date']}:{lang}"
     if (
         not refresh
-        and _brief_cache["date"] == compact["date"]
+        and _brief_cache["key"] == cache_key
         and _brief_cache["data"] is not None
     ):
         return _brief_cache["data"]  # type: ignore[return-value]
 
-    brief = _openai_daily_brief(compact)
-    _brief_cache["date"] = compact["date"]
+    brief = _openai_daily_brief(compact, lang)
+    _brief_cache["key"] = cache_key
     _brief_cache["data"] = brief
     return brief
 

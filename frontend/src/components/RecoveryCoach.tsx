@@ -1,9 +1,11 @@
 import type { DayData } from '../types'
 import { scoreLabel } from '../lib/format'
+import { TEXT, type Lang } from '../lib/i18n'
 
 interface Props {
   today: DayData
   week: DayData[]
+  lang: Lang
 }
 
 interface Driver {
@@ -34,7 +36,8 @@ function tone(driver: Driver): string {
   return 'var(--color-solar)'
 }
 
-export default function RecoveryCoach({ today, week }: Props) {
+export default function RecoveryCoach({ today, week, lang }: Props) {
+  const copy = TEXT[lang]
   const baselineDays = week.slice(0, -1)
   const sleepAvg = avg(baselineDays.map((d) => d.sleep.score))
   const hrvAvg = avg(baselineDays.map((d) => d.heart.hrv))
@@ -47,40 +50,41 @@ export default function RecoveryCoach({ today, week }: Props) {
   const rhrDelta = rhrAvg - today.heart.resting
   const stressDelta = stressAvg - today.stress
   const hybridDelta = today.bodyBattery - hybridAvg
+  const heartUnit = lang === 'en' ? 'bpm' : 'ppm'
 
   const drivers: Driver[] = [
     {
-      label: 'Sueño',
+      label: copy.sleep,
       value: String(today.sleep.score),
-      detail: `${signed(sleepDelta)} vs base`,
+      detail: `${signed(sleepDelta)} ${copy.vsBase}`,
       impact: clamp(Math.abs(sleepDelta) * 4, 8, 100),
       polarity: sleepDelta >= 2 ? 'up' : sleepDelta <= -2 ? 'down' : 'flat',
     },
     {
       label: 'HRV',
       value: `${today.heart.hrv}ms`,
-      detail: `${signed(hrvDeltaPct, '%')} vs base`,
+      detail: `${signed(hrvDeltaPct, '%')} ${copy.vsBase}`,
       impact: clamp(Math.abs(hrvDeltaPct) * 3, 8, 100),
       polarity: hrvDeltaPct >= 5 ? 'up' : hrvDeltaPct <= -5 ? 'down' : 'flat',
     },
     {
       label: 'RHR',
       value: `${today.heart.resting}`,
-      detail: `${signed(rhrDelta)} ppm vs base`,
+      detail: `${signed(rhrDelta)} ${heartUnit} ${copy.vsBase}`,
       impact: clamp(Math.abs(rhrDelta) * 12, 8, 100),
       polarity: rhrDelta >= 2 ? 'up' : rhrDelta <= -2 ? 'down' : 'flat',
     },
     {
-      label: 'Estrés',
+      label: copy.stress,
       value: String(today.stress),
-      detail: `${signed(stressDelta)} vs base`,
+      detail: `${signed(stressDelta)} ${copy.vsBase}`,
       impact: clamp(Math.abs(stressDelta) * 5, 8, 100),
       polarity: stressDelta >= 5 ? 'up' : stressDelta <= -5 ? 'down' : 'flat',
     },
     {
       label: 'Hybrid',
       value: String(today.bodyBattery),
-      detail: `${signed(hybridDelta)} vs base`,
+      detail: `${signed(hybridDelta)} ${copy.vsBase}`,
       impact: clamp(Math.abs(hybridDelta) * 3, 8, 100),
       polarity: hybridDelta >= 5 ? 'up' : hybridDelta <= -5 ? 'down' : 'flat',
     },
@@ -90,20 +94,20 @@ export default function RecoveryCoach({ today, week }: Props) {
   const negative = drivers.filter((d) => d.polarity === 'down').length
   const mode =
     today.readiness >= 75
-      ? 'Empujar'
+      ? copy.push
       : today.readiness >= 55
       ? negative > positive
-        ? 'Construir suave'
-        : 'Construir'
-      : 'Proteger'
+        ? copy.easyBuild
+        : copy.build
+      : copy.protect
   const coaching =
-    mode === 'Empujar'
-      ? 'Tu sistema está listo para carga alta si el plan lo pide.'
-      : mode === 'Proteger'
-      ? 'Prioriza sueño, hidratación y baja intensidad.'
+    mode === copy.push
+      ? copy.highLoadOk
+      : mode === copy.protect
+      ? copy.protectCoach
       : today.exertion <= 10
-      ? 'Buen día para zona 2, técnica o fuerza controlada.'
-      : 'Mantén carga moderada y corta si el estrés sube.'
+      ? copy.zone2Coach
+      : copy.moderateCoach
 
   return (
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.4fr]">
@@ -111,7 +115,7 @@ export default function RecoveryCoach({ today, week }: Props) {
         <div>
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
-              Recovery mode
+              {copy.recoveryMode}
             </span>
             <span className="rounded-full border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase text-solar-bright">
               {mode}
@@ -123,7 +127,7 @@ export default function RecoveryCoach({ today, week }: Props) {
             </span>
             <div className="pb-2">
               <div className="font-mono text-xs uppercase text-solar-bright">
-                {scoreLabel(today.readiness)}
+                {scoreLabel(today.readiness, lang)}
               </div>
               <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-elevated">
                 <div

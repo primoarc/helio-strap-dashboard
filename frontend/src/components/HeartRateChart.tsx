@@ -1,17 +1,24 @@
 import { useId } from 'react'
 import type { Point } from '../types'
+import { type Lang } from '../lib/i18n'
 
 interface Props {
   series: Point[]
   resting: number
   height?: number
+  lang: Lang
 }
 
 /**
  * Curva de frecuencia cardíaca del día (área + línea con gradiente).
  * SVG custom para un look de instrumento, no de librería genérica.
  */
-export default function HeartRateChart({ series, resting, height = 150 }: Props) {
+export default function HeartRateChart({
+  series,
+  resting,
+  height = 150,
+  lang,
+}: Props) {
   const id = useId().replace(/:/g, '')
   const W = 640
   const H = height
@@ -37,7 +44,7 @@ export default function HeartRateChart({ series, resting, height = 150 }: Props)
       height={H}
       preserveAspectRatio="none"
       role="img"
-      aria-label="Frecuencia cardíaca durante el día"
+      aria-label={lang === 'en' ? 'Heart rate during the day' : 'Frecuencia cardíaca durante el día'}
     >
       <defs>
         <linearGradient id={`hr-fill-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -67,7 +74,7 @@ export default function HeartRateChart({ series, resting, height = 150 }: Props)
         fontSize="10"
         fill="var(--color-faint)"
       >
-        reposo {resting}
+        {lang === 'en' ? 'resting' : 'reposo'} {resting}
       </text>
 
       <path d={area} fill={`url(#hr-fill-${id})`} />

@@ -1,4 +1,5 @@
 import Icon, { type IconName } from './Icon'
+import { TEXT, type Lang } from '../lib/i18n'
 
 export interface NavItem {
   id: string
@@ -6,20 +7,22 @@ export interface NavItem {
   label: string
 }
 
-export const NAV: NavItem[] = [
-  { id: 'top', icon: 'sun', label: 'Inicio' },
-  { id: 'sleep', icon: 'moon', label: 'Sueño' },
-  { id: 'heart', icon: 'heart', label: 'Corazón' },
-  { id: 'activity', icon: 'route', label: 'Actividad' },
-  { id: 'trends', icon: 'gauge', label: 'Tendencias' },
+const NAV: Array<Omit<NavItem, 'label'> & { labelKey: keyof typeof TEXT.es }> = [
+  { id: 'top', icon: 'sun', labelKey: 'navHome' },
+  { id: 'sleep', icon: 'moon', labelKey: 'navSleep' },
+  { id: 'heart', icon: 'heart', labelKey: 'navHeart' },
+  { id: 'activity', icon: 'route', labelKey: 'navActivity' },
+  { id: 'trends', icon: 'gauge', labelKey: 'navTrends' },
 ]
 
 interface Props {
   active: string
   onSelect: (id: string) => void
+  lang: Lang
 }
 
-export default function Sidebar({ active, onSelect }: Props) {
+export default function Sidebar({ active, onSelect, lang }: Props) {
+  const copy = TEXT[lang]
   return (
     <aside className="sticky top-0 hidden h-svh w-[68px] flex-col items-center gap-1 border-r border-line py-5 lg:flex">
       <button
@@ -34,7 +37,7 @@ export default function Sidebar({ active, onSelect }: Props) {
         return (
           <button
             key={n.id}
-            title={n.label}
+            title={copy[n.labelKey]}
             onClick={() => onSelect(n.id)}
             className={`group relative grid h-11 w-11 place-items-center rounded-xl transition-colors ${
               isActive

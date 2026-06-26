@@ -67,7 +67,8 @@ Sin credenciales, el backend sirve datos demo igualmente (útil para cablear).
 El panel **AI morning brief** se genera automáticamente después de las 8:00 AM
 o manualmente con el botón de actualizar del panel. Si defines `OPENAI_API_KEY`
 en `backend/.env`, usa OpenAI desde el backend; si no, cae a un resumen local
-básico.
+básico. El brief respeta el selector **ES/EN** de la UI y el backend fuerza
+salida JSON con schema estructurado para evitar respuestas malformadas.
 
 ```bash
 OPENAI_API_KEY=

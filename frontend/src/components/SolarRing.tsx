@@ -1,16 +1,18 @@
 import Ring from './Ring'
 import { scoreLabel } from '../lib/format'
+import type { Lang } from '../lib/i18n'
 
 interface Props {
   value: number
   size?: number
+  lang: Lang
 }
 
 /**
  * Anillo héroe de "readiness/energía". Brilla como un sol:
  * halo radial + marcas de instrumento alrededor + dígito grande.
  */
-export default function SolarRing({ value, size = 248 }: Props) {
+export default function SolarRing({ value, size = 248, lang }: Props) {
   const ticks = Array.from({ length: 60 })
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
@@ -81,7 +83,7 @@ export default function SolarRing({ value, size = 248 }: Props) {
             }}
             className="font-mono"
           >
-            {scoreLabel(value)}
+            {scoreLabel(value, lang)}
           </div>
           <div
             style={{ marginTop: 2, fontSize: 11, color: 'var(--color-faint)' }}

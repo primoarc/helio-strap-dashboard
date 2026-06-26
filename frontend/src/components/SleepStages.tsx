@@ -1,5 +1,6 @@
 import type { SleepData, SleepStage } from '../types'
 import { hm, clock } from '../lib/format'
+import { TEXT, type Lang } from '../lib/i18n'
 
 const STAGE_META: Record<SleepStage, { label: string; color: string; level: number }> = {
   deep: { label: 'Profundo', color: '#5b4fd0', level: 3 },
@@ -9,7 +10,20 @@ const STAGE_META: Record<SleepStage, { label: string; color: string; level: numb
 }
 const ORDER: SleepStage[] = ['deep', 'light', 'rem', 'awake']
 
-export default function SleepStages({ sleep }: { sleep: SleepData }) {
+export default function SleepStages({
+  sleep,
+  lang,
+}: {
+  sleep: SleepData
+  lang: Lang
+}) {
+  const copy = TEXT[lang]
+  const stageLabel: Record<SleepStage, string> = {
+    deep: copy.deep,
+    light: copy.light,
+    rem: copy.rem,
+    awake: copy.awake,
+  }
   const total = sleep.totalMinutes
   const totals: Record<SleepStage, number> = {
     deep: 0,
@@ -76,8 +90,8 @@ export default function SleepStages({ sleep }: { sleep: SleepData }) {
       </svg>
 
       <div className="mt-3 flex justify-between font-mono text-[11px] text-faint">
-        <span>{clock(sleep.bedtime)}</span>
-        <span>{clock(sleep.wakeTime)}</span>
+        <span>{clock(sleep.bedtime, lang)}</span>
+        <span>{clock(sleep.wakeTime, lang)}</span>
       </div>
 
       <div className="mt-4 grid grid-cols-4 gap-2">
@@ -88,7 +102,7 @@ export default function SleepStages({ sleep }: { sleep: SleepData }) {
                 className="inline-block h-2 w-2 rounded-full"
                 style={{ background: STAGE_META[st].color }}
               />
-              <span className="text-[11px] text-muted">{STAGE_META[st].label}</span>
+              <span className="text-[11px] text-muted">{stageLabel[st]}</span>
             </div>
             <div className="mt-1 font-mono text-sm text-ink tnum">
               {hm(totals[st])}

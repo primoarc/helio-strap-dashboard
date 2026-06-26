@@ -1,14 +1,17 @@
 import type { DayData } from '../types'
 import { weekday, scoreTone } from '../lib/format'
+import { TEXT, type Lang } from '../lib/i18n'
 
 interface Props {
   week: DayData[]
   metric: (d: DayData) => number
   unit?: string
+  lang: Lang
 }
 
 /** Tendencia de 7 días como línea, área y puntos por día. */
-export default function WeekTrend({ week, metric }: Props) {
+export default function WeekTrend({ week, metric, lang }: Props) {
+  const copy = TEXT[lang]
   const vals = week.map(metric)
   const width = 320
   const height = 150
@@ -38,7 +41,7 @@ export default function WeekTrend({ week, metric }: Props) {
         viewBox={`0 0 ${width} ${height}`}
         className="h-full w-full overflow-visible"
         role="img"
-        aria-label="Tendencia semanal de readiness"
+        aria-label={lang === 'en' ? 'Weekly readiness trend' : 'Tendencia semanal de readiness'}
       >
         <defs>
           <linearGradient id="readiness-area" x1="0" y1="0" x2="0" y2="1">
@@ -127,7 +130,7 @@ export default function WeekTrend({ week, metric }: Props) {
                   active ? 'text-solar-bright' : 'text-faint'
                 }`}
               >
-                {weekday(p.date)}
+                {weekday(p.date, lang)}
               </text>
             </g>
           )
@@ -135,8 +138,10 @@ export default function WeekTrend({ week, metric }: Props) {
       </svg>
       {latest && (
         <div className="-mt-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-faint">
-          <span>7 días</span>
-          <span className="text-solar-bright">actual {latest.value}</span>
+          <span>{copy.sevenDays}</span>
+          <span className="text-solar-bright">
+            {copy.current} {latest.value}
+          </span>
         </div>
       )}
     </div>

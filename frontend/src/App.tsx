@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { DailyBrief, HealthSnapshot } from './types'
 import { fetchDailyBrief, fetchSnapshot } from './lib/dataSource'
-import { hm, localDateKey, nf, scoreLabel } from './lib/format'
+import { hm, localDateKey, numberFormat, scoreLabel } from './lib/format'
+import { LANG_STORAGE_KEY, normalizeLang, TEXT, type Lang } from './lib/i18n'
 
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
@@ -29,6 +30,15 @@ export default function App() {
   const [briefError, setBriefError] = useState<string | null>(null)
   const [briefLoading, setBriefLoading] = useState(false)
   const [active, setActive] = useState('top')
+  const [lang, setLang] = useState<Lang>(() =>
+    normalizeLang(window.localStorage.getItem(LANG_STORAGE_KEY)),
+  )
+  const copy = TEXT[lang]
+  const nf = numberFormat(lang)
+
+  useEffect(() => {
+    window.localStorage.setItem(LANG_STORAGE_KEY, lang)
+  }, [lang])
 
   // Scrollspy: resalta en el sidebar la sección visible.
   useEffect(() => {
@@ -75,14 +85,20 @@ export default function App() {
   const loadBrief = useCallback(async (refresh = false) => {
     setBriefLoading(true)
     try {
-      setBrief(await fetchDailyBrief(refresh))
+      setBrief(await fetchDailyBrief(refresh, lang))
       setBriefError(null)
     } catch (e) {
-      setBriefError(e instanceof Error ? e.message : 'No se pudo generar')
+      setBriefError(
+        e instanceof Error
+          ? e.message
+          : lang === 'en'
+          ? 'Could not generate'
+          : 'No se pudo generar',
+      )
     } finally {
       setBriefLoading(false)
     }
-  }, [])
+  }, [lang])
 
   useEffect(() => {
     load()
@@ -112,13 +128,15 @@ export default function App() {
       <div className="grid min-h-svh place-items-center p-6 text-center">
         <div className="panel max-w-sm p-8">
           <Icon name="bolt" size={28} className="mx-auto text-strain" />
-          <h1 className="mt-3 font-display text-xl text-ink">Sin conexión</h1>
+          <h1 className="mt-3 font-display text-xl text-ink">
+            {copy.disconnected}
+          </h1>
           <p className="mt-2 text-sm text-muted">{error}</p>
           <button
             onClick={() => load()}
             className="panel-hover mt-5 rounded-lg bg-surface-2 px-4 py-2 text-sm text-ink"
           >
-            Reintentar
+            {copy.retry}
           </button>
         </div>
       </div>
@@ -139,7 +157,7 @@ export default function App() {
             }}
           />
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-faint">
-            Sincronizando Helio Strap…
+            {copy.syncing}
           </p>
         </div>
       </div>
@@ -149,31 +167,41 @@ export default function App() {
   const { today, week } = data
   const a = today.activity
   const isCurrentDay = today.date === localDateKey()
-  const recordLabel = isCurrentDay ? 'hoy' : 'último registro'
+  const recordLabel = isCurrentDay ? copy.today : copy.latestRecord
+  const heartUnit = lang === 'en' ? 'bpm' : 'ppm'
 
   return (
     <div className="flex">
-      <Sidebar active={active} onSelect={goto} />
+      <Sidebar active={active} onSelect={goto} lang={lang} />
       <main className="mx-auto w-full max-w-[1280px] px-5 py-6 md:px-8">
-        <TopBar data={data} onRefresh={() => load(true)} refreshing={refreshing} />
+        <TopBar
+          data={data}
+          onRefresh={() => load(true)}
+          refreshing={refreshing}
+          lang={lang}
+          onLangToggle={() => setLang((current) => (current === 'es' ? 'en' : 'es'))}
+        />
 
         {/* Fila 1 — readiness héroe + corazón */}
         <div className="grid grid-cols-12 gap-4">
           <Panel id="top" className="col-span-12 lg:col-span-4" delay={0}>
             <div className="flex flex-col items-center">
-              <SolarRing value={today.readiness} />
+              <SolarRing value={today.readiness} lang={lang} />
               <p className="mt-4 text-center text-[13px] leading-relaxed text-muted">
-                Tu energía está <b className="text-ink">{scoreLabel(today.readiness).toLowerCase()}</b>.
+                {copy.energyPrefix}{' '}
+                <b className="text-ink">
+                  {scoreLabel(today.readiness, lang).toLowerCase()}
+                </b>.
                 {!isCurrentDay
-                  ? ' Registro más reciente de Zepp.'
+                  ? copy.recentZeppRecord
                   : today.readiness >= 70
-                  ? ' Buen día para empujar fuerte.'
-                  : ' Considera una sesión ligera hoy.'}
+                  ? copy.pushDay
+                  : copy.lightDay}
               </p>
               <div className="mt-6 grid w-full grid-cols-3 gap-2 border-t border-line pt-5">
                 <MiniRingStat
                   value={today.sleep.score}
-                  label="Sueño"
+                  label={copy.sleep}
                   display={String(today.sleep.score)}
                 />
                 <MiniRingStat
@@ -185,7 +213,7 @@ export default function App() {
                 />
                 <MiniRingStat
                   value={today.stress}
-                  label="Estrés"
+                  label={copy.stress}
                   display={String(today.stress)}
                   from="var(--color-solar)"
                   to="var(--color-strain)"
@@ -197,16 +225,16 @@ export default function App() {
           <Panel
             id="heart"
             className="col-span-12 lg:col-span-8"
-            title={`Frecuencia cardíaca · ${recordLabel}`}
+            title={`${copy.heartRate} · ${recordLabel}`}
             delay={60}
             right={
               <div className="flex items-center gap-4 font-mono text-[11px] text-muted tnum">
                 <span className="flex items-center gap-1">
-                  <span className="text-faint">act</span>
+                  <span className="text-faint">{copy.activeShort}</span>
                   <Heartbeat bpm={today.heart.current} size={15} />
                 </span>
                 <span>
-                  <span className="text-faint">máx</span>{' '}
+                  <span className="text-faint">{copy.maxShort}</span>{' '}
                   <b className="text-strain">{today.heart.max}</b>
                 </span>
                 <span>
@@ -216,12 +244,16 @@ export default function App() {
               </div>
             }
           >
-            <HeartRateChart series={today.heart.series} resting={today.heart.resting} />
+            <HeartRateChart
+              series={today.heart.series}
+              resting={today.heart.resting}
+              lang={lang}
+            />
             <div className="mt-4 grid grid-cols-4 gap-3 border-t border-line pt-4">
               {[
-                { l: 'Reposo', v: `${today.heart.resting}`, u: 'ppm' },
-                { l: 'Mínima', v: `${today.heart.min}`, u: 'ppm' },
-                { l: 'Máxima', v: `${today.heart.max}`, u: 'ppm' },
+                { l: copy.resting, v: `${today.heart.resting}`, u: heartUnit },
+                { l: copy.minimum, v: `${today.heart.min}`, u: heartUnit },
+                { l: copy.maximum, v: `${today.heart.max}`, u: heartUnit },
                 { l: 'SpO₂', v: `${today.spo2}`, u: '%' },
               ].map((s) => (
                 <div key={s.l}>
@@ -240,23 +272,24 @@ export default function App() {
 
         <Panel
           className="mt-4"
-          title="Recovery breakdown"
-          hint="Baseline personal de 7 días"
+          title={copy.recoveryBreakdown}
+          hint={copy.baseline7}
           delay={90}
         >
-          <RecoveryCoach today={today} week={week} />
+          <RecoveryCoach today={today} week={week} lang={lang} />
         </Panel>
 
         <Panel
           className="mt-4"
-          title="AI morning brief"
-          hint="Auto 8:00 AM · botón manual"
+          title={copy.aiMorningBrief}
+          hint={copy.aiMorningHint}
           delay={110}
         >
           <DailyBriefPanel
             brief={brief}
             error={briefError}
             loading={briefLoading}
+            lang={lang}
             onRefresh={() => loadBrief(true)}
           />
         </Panel>
@@ -265,21 +298,21 @@ export default function App() {
         <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           <StatTile
             icon="steps"
-            label="Pasos"
+            label={copy.steps}
             value={nf.format(a.steps)}
-            sub={`meta ${nf.format(a.stepsGoal)}`}
+            sub={`${copy.goal} ${nf.format(a.stepsGoal)}`}
             delay={0}
           />
           <StatTile
             icon="route"
-            label="Distancia"
+            label={copy.distance}
             value={a.distanceKm}
             unit="km"
             delay={40}
           />
           <StatTile
             icon="flame"
-            label="Calorías"
+            label={copy.calories}
             value={nf.format(a.calories)}
             unit="kcal"
             accent="var(--color-strain)"
@@ -315,7 +348,7 @@ export default function App() {
           <Panel
             id="sleep"
             className="col-span-12 lg:col-span-7"
-            title="Sueño de anoche"
+            title={copy.lastNightSleep}
             delay={0}
             right={
               <div className="text-right">
@@ -323,20 +356,21 @@ export default function App() {
                   {hm(today.sleep.totalMinutes)}
                 </div>
                 <div className="font-mono text-[11px] text-faint">
-                  {scoreLabel(today.sleep.score)} · {today.sleep.efficiency}% efic.
+                  {scoreLabel(today.sleep.score, lang)} · {today.sleep.efficiency}%{' '}
+                  {copy.efficiency}
                 </div>
               </div>
             }
           >
-            <SleepStages sleep={today.sleep} />
+            <SleepStages sleep={today.sleep} lang={lang} />
           </Panel>
 
           <Panel
             className="col-span-12 lg:col-span-5"
-            title={`Entrenamientos · ${recordLabel}`}
+            title={`${copy.workouts} · ${recordLabel}`}
             delay={60}
           >
-            <Workouts workouts={today.workouts} />
+            <Workouts workouts={today.workouts} lang={lang} />
           </Panel>
         </div>
 
@@ -345,7 +379,7 @@ export default function App() {
           <Panel
             id="activity"
             className="col-span-12 lg:col-span-7"
-            title={`Pasos por hora · ${recordLabel}`}
+            title={`${copy.hourlySteps} · ${recordLabel}`}
             delay={0}
           >
             <ActivityBars hourly={a.hourly} />
@@ -353,17 +387,17 @@ export default function App() {
           <Panel
             id="trends"
             className="col-span-12 lg:col-span-5"
-            title="Readiness · 7 días"
+            title={copy.readiness7}
             delay={60}
           >
-            <WeekTrend week={week} metric={(d) => d.readiness} />
+            <WeekTrend week={week} metric={(d) => d.readiness} lang={lang} />
           </Panel>
         </div>
 
         <footer className="mt-8 flex items-center justify-between border-t border-line pt-4 font-mono text-[11px] text-faint">
-          <span>Helio Strap · dashboard</span>
+          <span>{copy.footerProduct}</span>
           <span>
-            UI basada en componentes de OpenFit · fuente: {data.source}
+            {copy.footerSource}: {data.source}
           </span>
         </footer>
       </main>

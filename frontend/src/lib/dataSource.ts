@@ -1,5 +1,6 @@
 import type { DailyBrief, HealthSnapshot } from '../types'
 import { buildDemoSnapshot } from '../data/demo'
+import type { Lang } from './i18n'
 
 /**
  * Única puerta de entrada a los datos para la UI.
@@ -27,11 +28,18 @@ export async function fetchSnapshot(refresh = false): Promise<HealthSnapshot> {
   return buildDemoSnapshot()
 }
 
-export async function fetchDailyBrief(refresh = false): Promise<DailyBrief> {
+export async function fetchDailyBrief(
+  refresh = false,
+  lang: Lang = 'es',
+): Promise<DailyBrief> {
   if (MODE === 'zepp') {
-    const res = await fetch(`/api/daily-brief${refresh ? '?refresh=1' : ''}`)
+    const params = new URLSearchParams({ lang })
+    if (refresh) params.set('refresh', '1')
+    const res = await fetch(`/api/daily-brief?${params.toString()}`)
     if (!res.ok) {
-      throw new Error(`Brief respondió ${res.status}`)
+      throw new Error(
+        lang === 'en' ? `Brief returned ${res.status}` : `Brief respondió ${res.status}`,
+      )
     }
     return (await res.json()) as DailyBrief
   }
@@ -42,15 +50,31 @@ export async function fetchDailyBrief(refresh = false): Promise<DailyBrief> {
     date: today.date,
     generatedAt: new Date().toISOString(),
     source: 'local',
-    title: `Construir: readiness ${today.readiness}`,
-    summary: `Sueño ${today.sleep.score}, HRV ${today.heart.hrv} ms, Hybrid ${today.bodyBattery} y estrés ${today.stress}.`,
-    recommendation: 'Buen día para zona 2, técnica o fuerza controlada.',
-    focus: 'base aeróbica',
-    bullets: [
-      `Readiness ${today.readiness}: ${today.readiness >= 70 ? 'bueno' : 'moderado'}.`,
-      `Sueño ${today.sleep.score} con ${Math.floor(today.sleep.totalMinutes / 60)}h ${String(today.sleep.totalMinutes % 60).padStart(2, '0')}m.`,
-      `Exertion ${today.exertion}% con ${today.activity.steps} pasos.`,
-    ],
+    title:
+      lang === 'en'
+        ? `Build: readiness ${today.readiness}`
+        : `Construir: readiness ${today.readiness}`,
+    summary:
+      lang === 'en'
+        ? `Sleep ${today.sleep.score}, HRV ${today.heart.hrv} ms, Hybrid ${today.bodyBattery}, and stress ${today.stress}.`
+        : `Sueño ${today.sleep.score}, HRV ${today.heart.hrv} ms, Hybrid ${today.bodyBattery} y estrés ${today.stress}.`,
+    recommendation:
+      lang === 'en'
+        ? 'Good day for zone 2, technique, or controlled strength.'
+        : 'Buen día para zona 2, técnica o fuerza controlada.',
+    focus: lang === 'en' ? 'aerobic base' : 'base aeróbica',
+    bullets:
+      lang === 'en'
+        ? [
+            `Readiness ${today.readiness}: ${today.readiness >= 70 ? 'good' : 'moderate'}.`,
+            `Sleep ${today.sleep.score} with ${Math.floor(today.sleep.totalMinutes / 60)}h ${String(today.sleep.totalMinutes % 60).padStart(2, '0')}m.`,
+            `Exertion ${today.exertion}% with ${today.activity.steps} steps.`,
+          ]
+        : [
+            `Readiness ${today.readiness}: ${today.readiness >= 70 ? 'bueno' : 'moderado'}.`,
+            `Sueño ${today.sleep.score} con ${Math.floor(today.sleep.totalMinutes / 60)}h ${String(today.sleep.totalMinutes % 60).padStart(2, '0')}m.`,
+            `Exertion ${today.exertion}% con ${today.activity.steps} pasos.`,
+          ],
     warnings: [],
   }
 }

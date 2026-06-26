@@ -1,10 +1,12 @@
 import type { DailyBrief } from '../types'
+import { TEXT, type Lang } from '../lib/i18n'
 import Icon from './Icon'
 
 interface Props {
   brief: DailyBrief | null
   error?: string | null
   loading: boolean
+  lang: Lang
   onRefresh: () => void
 }
 
@@ -12,25 +14,27 @@ export default function DailyBriefPanel({
   brief,
   error,
   loading,
+  lang,
   onRefresh,
 }: Props) {
+  const copy = TEXT[lang]
   return (
     <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
       <div className="rounded-xl border border-line bg-surface-2/60 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
-              Daily AI brief
+              {copy.dailyBrief}
             </div>
             <h3 className="mt-2 font-display text-2xl font-semibold text-ink">
-              {brief?.title ?? 'Listo para generar'}
+              {brief?.title ?? copy.readyToGenerate}
             </h3>
           </div>
           <button
             onClick={onRefresh}
             disabled={loading}
             className="panel-hover grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-line bg-elevated text-solar disabled:opacity-60"
-            title="Actualizar análisis"
+            title={copy.refreshAnalysis}
           >
             <Icon name="sync" size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -39,7 +43,7 @@ export default function DailyBriefPanel({
         <p className="mt-4 text-[14px] leading-relaxed text-muted">
           {error ??
             brief?.summary ??
-            'Se genera automáticamente después de las 8:00 AM o cuando presionas actualizar.'}
+            copy.autoBriefEmpty}
         </p>
         {brief?.recommendation && (
           <p className="mt-3 border-l-2 border-solar pl-3 text-[14px] leading-relaxed text-ink">
@@ -49,10 +53,10 @@ export default function DailyBriefPanel({
 
         <div className="mt-5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
           <span className="rounded-full bg-elevated px-2.5 py-1 text-solar-bright">
-            foco: {brief?.focus ?? 'pendiente'}
+            {copy.focus}: {brief?.focus ?? copy.pending}
           </span>
           <span className="rounded-full bg-elevated px-2.5 py-1 text-faint">
-            fuente: {brief?.source ?? 'sin generar'}
+            {copy.source}: {brief?.source ?? copy.notGenerated}
           </span>
         </div>
       </div>
@@ -60,7 +64,7 @@ export default function DailyBriefPanel({
       <div className="grid content-start gap-3">
         {(brief?.bullets?.length
           ? brief.bullets
-          : ['Abre la app después de las 8:00 AM para generar tu brief.']
+          : [copy.briefEmptyBullet]
         ).map((b) => (
           <div
             key={b}
