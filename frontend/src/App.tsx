@@ -16,6 +16,7 @@ import Workouts from './components/Workouts'
 import StatTile from './components/StatTile'
 import Heartbeat from './components/Heartbeat'
 import Icon from './components/Icon'
+import RecoveryCoach from './components/RecoveryCoach'
 
 const SECTION_IDS = ['top', 'heart', 'sleep', 'activity', 'trends']
 
@@ -201,6 +202,15 @@ export default function App() {
             </div>
           </Panel>
         </div>
+
+        <Panel
+          className="mt-4"
+          title="Recovery breakdown"
+          hint="Baseline personal de 7 días"
+          delay={90}
+        >
+          <RecoveryCoach today={today} week={week} />
+        </Panel>
 
         {/* Fila 2 — tarjetas rápidas */}
         <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
